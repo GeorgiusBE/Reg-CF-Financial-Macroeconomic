@@ -104,9 +104,125 @@ Note that the clustering process will only be using features that directly captu
 
 <b>Fig. 1.</b> Hierarchical Clustering Dendogram with Average Linkage: Optimal cut at two clusters with 3548 data points in the first cluster and 15 in the second cluster.
 
+<img src="Image/Fig1.png" alt="Alt text" width="500"/>
 
 <b>Fig. 2.</b> Hierarchical Clustering Dendogram with Complete (Maximum) Linkage: Optimal cut at two clusters with 3513 data points in the first cluster and 50 in the second cluster.
 
+<img src="Image/Fig2.png" alt="Alt text" width="500"/>
 
 <b>Fig. 3.</b> Hierarchical Clustering Dendogram with Centroid Linkage: Optimal cut at two clusters with 3548 data points in the first cluster and 15 in the second cluster.
 
+<img src="Image/Fig3.png" alt="Alt text" width="500"/>
+
+For the hierarchical clustering algorithm, clustering was performed using multiple linkage methods to compute inter-cluster distances, including average linkage, complete linkage (maximum distance), and centroid linkage. The resulting dendrograms are shown in the diagrams above. In all cases, the dendrograms indicate an optimal cut at two clusters, corresponding to the largest vertical distance between successive merges (i.e., the largest linkage gap). However, this solution produces highly imbalanced cluster sizes. Alternative cuts based on the second- and third-largest linkage gaps were also tested, but the resulting clusters remained substantially imbalanced.
+
+For K-means clustering, multiple runs are performed with varying numbers of clusters (K) to identify the optimal clustering solution. For each iteration, inertia and silhouette scores are calculated, and scree plots of both metrics are generated to guide the selection of K, as shown in the figures below,
+
+<b>Fig. 4.</b> Scree plot of the inertia score.
+
+<img src="Image/Fig4.png" alt="Alt text" width="500"/>
+
+<b>Fig. 5.</b> Scree plot of the silhouette score.
+
+<img src="Image/Fig5.png" alt="Alt text" width="500"/>
+
+To determine the appropriate number of clusters from the inertia score scree plot, the “elbow” method is typically used. In this case, however, no distinct elbow is observed, making it difficult to identify an optimal K based on inertia alone. Therefore, the silhouette score scree plot was examined instead. The highest silhouette score occurs at K = 2, suggesting two clusters as the optimal solution. However, this configuration produces a highly imbalanced distribution (3,474 data points in one cluster and 89 in the other). Consequently, the second-highest silhouette score, observed at K = 4, was selected. This choice yields a more balanced distribution, with cluster sizes of 1,523; 1,200; 757; and 83, respectively, as well as each of the 4 clusters are interpretable. The details for each cluster is presented in the table below,
+
+<b>Fig. 6.</b> The mean value of features in each of the 4 clusters derived from K-Means clustering.
+
+<img src="Image/Fig6.png" alt="Alt text" width="500"/>
+
+The issuers in each cluster can be described as follows, in which these clusters will be included in the Basic feature set,
+-	Group 1 (Established): This group consists of large-sized companies that have secured a well-established position in the market, as reflected by their high total assets, large employee base, and substantial revenue generation. These companies have also achieved operational efficiency, evidenced by their positive gross profit margins, indicating that their core products or services are economically viable. However, despite this operational strength, they are generally loss-making, as reflected in their negative average net profit margins.
+-	Group 2 (Scaling with Operational Strain): This group consists of moderately sized companies that are focusing on expanding their market share, as reflected by the strong revenue growth. However, to fuel this growth, they likely engage in significant reinvestment, such as aggressive marketing or customer acquisition spending. Moreover, the negative gross margin points to either operational inefficiencies or early-stage pricing strategies. These two factors explain the large negative net profit margin observed in this cluster.
+-	Group 3 (Scaling with Operational Efficiency): This group consists of mid-sized companies that are focusing on expanding their market share, as reflected by the strong revenue growth. Similar to Group 2, they likely incur significant reinvestment to support this expansion. However, their net profit margin is not as negative as in Group 2 because entities in this group have a positive gross margin, indicating that their core operations are economically viable. Moreover, they exhibit higher revenue growth than Group 2.
+-	Group 4 (Early-Stage): It consists of very early ventures with a good majority of entities in the cluster are at pre-revenue level. Companies at this stage incur a lot of expenses related to R&D, in which when combined with low or no revenue stream, these companies suffer from large losses.
+
+
+## Cross-Validation
+K-Fold cross-validation will be employed to evaluate model performance in a robust and unbiased manner. The K-Fold method begins by partitioning the entire dataset into K equally sized subsets, commonly referred to as “folds.” The model training and evaluation process is then repeated K times. In each iteration, one of the K folds is held out as the validation (testing) set, while the remaining K – 1 folds are used to train the machine learning model. This ensures that each of the K folds is used exactly once as the validation set.
+
+After all K iterations are completed, performance metrics are calculated on each of the K validation sets. These K individual metric values are then averaged to produce a final aggregated performance estimate. Note that in this study, 5-Fold cross-validation will be used during hyper-parameter tuning, model calibration, performance evaluation, and SHAP analysis.
+
+## Hyper-parameter Tuning and Model Calibration
+Hyperparameter tuning is conducted to identify the optimal hyperparameter configuration for each model and feature set combination, using 5-fold cross-validation.
+
+Tuning is performed using random search, with binary cross-entropy (also known as log loss) as the scoring metric to guide model selection. Binary cross-entropy is chosen over threshold-based metrics (e.g. accuracy, F1-score) because it provides a more fine-grained evaluation of predictive performance. Unlike classification metrics that rely on hard thresholding (e.g. assigning a class label based on a 0.5 cutoff), log loss penalizes predictions based on how far the predicted probability deviates from the true class label, where the closer the predicted probability is to the correct class, the smaller the loss incurred.
+
+However, when using log loss, the predicted probabilities (i.e. model outputs) must be well-calibrated, which is not always the case. Many models, such as SVMs, Random Forests, and Gradient Boosted Trees (e.g. XGBoost), produce poorly calibrated probabilities. As noted by Niculescu-Mizil and Caruana (2005), these models tend to face difficulty in producing probability that is close to 0 and 1. In contrasts, logistic regression and NNs produces well-calibrated probability predictions. This issue can be addressed by performing probability calibration, where SVMs, random forests, and gradient-boosted trees are models that benefit the most from probability calibration (Niculescu-Mizil & Caruana, 2005). And therefore, calibration will only be performed on these three models.
+
+To calibrate the models, Platt scaling (also known as sigmoid calibration) is applied. Platt scaling involves fitting a logistic regression model with the output probabilities of the base model (i.e. the uncalibrated model) as the independent variable and the true label as the target variable. The resulting logistic regression transforms the raw scores into calibrated probabilities.
+
+## Results
+After hyper-parameter tuning is performed, each model was retrained using its tuned hyper-parameters, and performance was evaluated using 5-fold cross-validation.
+
+<b>Fig. 7.</b> Ablation Analysis: ML models’ prediction performance.
+
+| Feature Set        | Logistic Regression (Acc / Macro F1) | SVM (Acc / Macro F1) | Random Forest (Acc / Macro F1) | XGBoost (Acc / Macro F1) | FNN (Acc / Macro F1) |
+|--------------------|---------------------------------------|-----------------------|--------------------------------|--------------------------|----------------------|
+| Basic              | 73.98% / 73.93%                      | 75.95% / 75.90%      | 77.66% / 77.64%                | 78.87% / 78.86%          | 77.07% / 76.97%      |
+| Basic + Financial  | 73.62% / 73.58%                      | 76.14% / 76.11%      | 78.28% / 78.26%                | 78.98% / 78.97%          | 78.11% / 78.07%      |
+| Basic + Macroecon. | 74.01% / 73.97%                      | 75.89% / 75.85%      | 78.11% / 78.09%                | 78.92% / 78.91%          | 77.66% / 77.62%      |
+| All                | 73.76% / 73.73%                      | 76.06% / 76.03%      | 78.56% / 78.53%                | 79.37% / 79.35%          | 77.04% / 76.98%      |
+
+The table above reports the accuracy and macro F1-scores of the five ML models across four progressively enriched feature sets. Several key patterns emerge from the result. First, XGBoost consistently achieved the highest accuracy (and macro F1-score) across all feature sets, with results ranging from 78.87% (78.86%) for the Basic features to a peak of 79.37% (79.35%) when all features were included. This result underscores the strength of gradient boosting in modelling complex, non-linear relationships and feature interactions.
+
+Second, Random Forest was the second-best performer, outperforming the remaining three models across all feature sets in both metrics. Like XGBoost, it achieved its best results on the complete feature set and its lowest scores on the Basic feature set, with accuracy (macro F1-score) ranging from 77.66% (77.64%) to 78.56% (78.53%).
+
+Third, among the remaining models, FNN consistently outperformed SVM and Logistic Regression, achieving its highest accuracy (78.11%) and macro F1-score (78.07%) with the “Basic + Financial Features” dataset. SVM performed best with the “Basic + Financial Features” configuration, while Logistic Regression trailed behind across all feature sets.
+
+Regarding the impact of adding Financial and Macroeconomic features to the Basic set, the results are mixed. In most cases, the additional features produced marginal improvements (generally under 1%), though slight performance declines were observed in some configurations (particularly in the simpler models, such as logistic regression and SVM). The most notable performance improvements across feature sets were as follows:
+-	Basic vs. Basic + Financial feature sets: The largest gain was observed in FNN, with +1.04% accuracy and +1.10% macro F1-score.
+-	Basic vs. Basic + Macroeconomic feature sets: Again, FNN showed the largest improvement, with +0.59% accuracy and +0.65% macro F1-score.
+-	Basic vs. Complete feature sets: The largest improvement was seen in Random Forest, with +0.90% accuracy and +0.89% macro F1.
+
+Given the minimal performance improvements, these findings indicate that the Basic features already capture most of the predictive signal, and the Financial and Macroeconomic features contribute limited additional predictive information beyond the baseline features.
+
+Additionally, across all models with the exception of the logistic regression model, training with Basic + Financial features resulted in slightly better performance than with Basic + Macroeconomic features. This suggests that the financial features carry slightly stronger predictive value. However, these performance differences were minimal, suggesting that this observation may not stand across different datasets or model tuning.
+
+SHAP analysis was then performed to clarify whether the limited improvements in predictive performance observed in the ablation study are due to a lack of inherent signal. Moreover, it could potentially identify certain financial and macroeconomic features that might still be influential to the model predictions.
+
+The SHAP analysis was performed using the best performing model on each feature set. The top 20 features with the highest mean absolute SHAP values for each of the four feature sets, derived from the best performing models, are as detailed in the charts below,
+
+<b>Fig. 8.</b> Top 20 features ranked by mean absolute SHAP values, from the XGBoost model trained on the Basic feature set, with values computed using 5-fold cross-validation.
+
+<img src="Image/Fig8.png" alt="Alt text" width="500"/>
+
+<b>Fig. 9.</b> Top 20 features ranked by mean absolute SHAP values, from the XGBoost model trained on the Basic + Financial feature set, with values computed using 5-fold cross-validation.
+
+<img src="Image/Fig9.png" alt="Alt text" width="500"/>
+
+<b>Fig. 10.</b> Top 20 features ranked by mean absolute SHAP values, from the XGBoost model trained on the Basic + Macroeconomic feature set, with values computed using 5-fold cross-validation.
+
+<img src="Image/Fig10.png" alt="Alt text" width="500"/>
+
+<b>Fig. 11.</b> Top 20 features ranked by mean absolute SHAP values, from the XGBoost model trained on the Basic + Financial + Macroeconomic feature set, with values computed using 5-fold cross-validation.
+
+<img src="Image/Fig11.png" alt="Alt text" width="500"/>
+
+Across all four feature sets, the top three predictors are identical, in the order of, offering target amount, pricing methodology, and platform popularity. All three originate from the Basic feature set, specifically within the CF characteristics group (i.e. campaign design and platform characteristics). Their dominance, with large margins over all other features, demonstrates that neither financial nor macroeconomic features displace these existing key predictors.
+
+When extending the analysis to the top eight features, the set remains unchanged across all four feature sets, with only minor changes in ordering. These features include target offering, pricing methodology, platform popularity, equity stake fee, duration, commission fee, debt security (as the type of instrument offered), and minimum investment size. Again, every one of these features comes from the CF characteristics group of the Basic feature set, reinforcing that the model’s predictive signal is heavily concentrated in a small cluster of campaign- and platform-related variables. Notably, the Issuer Characteristics features and the Geographic & Demographic features (both subgroups of the Basic feature set) are entirely absent from the top 8, indicating their weak predictive power. Moreover, none of the Development Phase features, derived from the clustering model, appear in the top 20 predictors, which is consistent with the finding that backers largely disregard issuer financial disclosures as the features used in clustering were primarily based on the issuer’s financial metrics.
+
+A closer comparison of SHAP values between the Basic and Basic + Financial feature sets shows that introducing financial variables brings net income and total assets into the top 10, ranked 9th and 10th, respectively. However, their SHAP values (~0.02) are an order of magnitude smaller than the leading basic predictor (~0.25), underscoring their limited marginal contribution. In contrast, in the Basic + Macroeconomic feature set, no macroeconomic variable enters the top 10. The highest-ranked is the S&P 500 return at 12th place (SHAP ~0.015), followed by interest rates (~0.009), in which both remain far below the influence of the dominant basic predictors.
+
+Finally, looking at the SHAP result from the complete feature set, the financial and macroeconomic features remain contributing minimally to model prediction, with the net income feature as the non-Basic feature with the largest SHAP value (~0.02), far lower than the top-ranked Basic features. Furthermore, the average SHAP value of the financial features in this feature set is 0.0099, while the macroeconomic features averaged 0.0083. This indicates that, on average, financial metrics contribute slightly more to model predictions than macroeconomic metrics. Nonetheless, the small difference in mean SHAP values (~0.0016) underscores the need for caution, because under different conditions (i.e. model tuning and/or dataset), the relative ranking between the two groups could easily reverse.
+
+Next, the standalone feature group analysis was performed. The results in table below show that financial-only features consistently outperform macroeconomic-only features across all models. Models trained exclusively on financial features reached accuracies and macro F1-scores of ~54–56%, whereas macroeconomic-only models performed worse, with accuracies of ~49–54% and macro F1-scores of ~36–55%. These findings reinforce the ablation and SHAP analyses, where financial disclosures carry slightly more predictive value than macroeconomic conditions. However, both groups remain weak as standalone predictors, as their performance is substantially lower than that of models trained on the Basic feature set alone.
+
+<b>Fig. 12.</b> Standalone Feature Group Analysis: ML models’ prediction performance.
+
+| Feature Set    | Logistic Regression (Acc / Macro F1) | SVM (Acc / Macro F1) | Random Forest (Acc / Macro F1) | XGBoost (Acc / Macro F1) | FNN (Acc / Macro F1) |
+|----------------|---------------------------------------|-----------------------|--------------------------------|--------------------------|----------------------|
+| Financial      | 54.56% / 54.53%                      | 55.63% / 55.58%      | 55.68% / 55.21%                | 55.32% / 54.86%          | 55.57% / 54.62%      |
+| Macroeconomic  | 53.18% / 53.16%                      | 52.20% / 36.58%      | 49.09% / 41.58%                | 50.30% / 39.17%          | 54.39% / 50.50%      |
+
+Given that the net income and total assets exhibit the greatest predictive value compared to the other financial features and the S&P500 returns and interest rates are the most influential macroeconomic features, we will dive deeper using SHAP beeswarm plots to see their directional behavior in more details. The SHAP beeswarm plots are generated using the complete feature set. This choice is motivated by the fact that the directional behavior of financial and macroeconomic features is consistent across the complete, Basic + Financial, and Basic + Macroeconomic feature sets. The beeswarm plot is presented below,
+
+<b>Fig. 13.</b> SHAP beeswarm plot of the top 20 features ranked by mean absolute SHAP values, based on the XGBoost model trained on the Basic + Financial + Macroeconomic feature set, with values computed using 5-fold cross-validation.
+
+<img src="Image/Fig13.png" alt="Alt text" width="500"/>
+
+In terms of the key financial features, the beeswarm plot reveals that net income displays a negative association with the probability of CF success, indicating that campaigns from issuers with lower net income are more likely to succeed. By contrast, total assets exhibit a positive relationship, suggesting that larger asset bases are associated with higher success probabilities. With respect to macroeconomic factors, the interest rate demonstrates an inverse relationship with CF success probability, while the S&P 500 return is generally positively associated, where more favorable equity market conditions are linked to greater campaign success.
+
+Briefly, the top basic predictors in the beeswarm plot show that the offering target is negatively associated with success, while platform popularity and CF duration are positively associated with success. Interestingly, the use of an arbitrary pricing methodology also emerges as a positive contributor to CF success.
